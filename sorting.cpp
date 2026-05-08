@@ -1,122 +1,66 @@
 #include <iostream>
 #include <vector>
+#include <algorithm>
 #include <omp.h>
+#include <chrono>
 
 using namespace std;
+using namespace std::chrono;
 
-/* ================= MERGE SORT ================= */
-
-void merge(int left, int mid, int right, vector<int> &arr) {
-
-    vector<int> res;
-
-    int i = left;
-    int j = mid + 1;
-
-    while(i <= mid && j <= right) {
-
-        if(arr[i] < arr[j]) {
-            res.push_back(arr[i++]);
+// ---------------- NORMAL BUBBLE SORT ----------------
+void bubbleSortNormal(vector<int> res) {
+    for (int i = 0; i < res.size() - 1; i++) {
+        for (int j = 0; j < res.size() - 1 - i; j++) {
+            if (res[j] > res[j + 1]) {
+                swap(res[j], res[j + 1]);
+            }
         }
-        else {
-            res.push_back(arr[j++]);
-        }
-    }
-
-    while(i <= mid) {
-        res.push_back(arr[i++]);
-    }
-
-    while(j <= right) {
-        res.push_back(arr[j++]);
-    }
-
-    for(int k = 0; k < res.size(); k++) {
-        arr[left + k] = res[k];
     }
 }
 
-void mergesort(int left, int right, vector<int> &arr) {
+// ---------------- OPENMP BUBBLE SORT ----------------
+void bubbleSortOMP(vector<int> &res) {
+    for (int i = 0; i < res.size() - 1; i++) {
+        bool swapped = false;
 
-    if(left >= right) {
-        return;
-    }
-
-    int mid = (left + right) / 2;
-
-    #pragma omp parallel sections
-    {
-        #pragma omp section
-        {
-            mergesort(left, mid, arr);
-        }
-
-        #pragma omp section
-        {
-            mergesort(mid + 1, right, arr);
-        }
-    }
-
-    merge(left, mid, right, arr);
-}
-
-/* ================= BUBBLE SORT ================= */
-
-void bubblesort(vector<int> &arr) {
-
-    bool swapped;
-
-    for(int i = 0; i < arr.size() - 1; i++) {
-
-        swapped = false;
-
-        // Parallel comparison only
         #pragma omp parallel for
-        for(int j = 0; j < arr.size() - i - 1; j++) {
-
-            // lock only swap section
-            if(arr[j] > arr[j + 1]) {
-
-                #pragma omp critical
-                {
-                    if(arr[j] > arr[j + 1]) {
-                        swap(arr[j], arr[j + 1]);
-                        swapped = true;
-                    }
-                }
+        for (int j = 0; j < res.size() - 1 - i; j++) {
+            if (res[j] > res[j + 1]) {
+                swap(res[j], res[j + 1]);
+                swapped = true;
             }
         }
 
-        if(!swapped) {
-            break;
-        }
+        if (!swapped) return;
     }
 }
 
-/* ================= MAIN ================= */
-
+// ---------------- MAIN ----------------
 int main() {
 
-    vector<int> arr1 = {5, 2, 9, 1, 3, 7};
-    vector<int> arr2 = {5, 3, 8, 4, 2};
+    vector<int> arr = {123,54,6523,5135,1231,45,1,234,5};
 
-    // Merge Sort
-    mergesort(0, arr1.size() - 1, arr1);
+    // -------- NORMAL SORT TIMING --------
+    vector<int> arr1 = arr;
 
-    cout << "Merge Sort Result: ";
-    for(int x : arr1) {
-        cout << x << " ";
-    }
-    cout << endl;
+    auto start1 = high_resolution_clock::now();
+    bubbleSortNormal(arr1);
+    auto end1 = high_resolution_clock::now();
 
-    // Bubble Sort
-    bubblesort(arr2);
+    auto time1 = duration_cast<microseconds>(end1 - start1);
 
-    cout << "Bubble Sort Result: ";
-    for(int x : arr2) {
-        cout << x << " ";
-    }
-    cout << endl;
+    // -------- OMP SORT TIMING --------
+    vector<int> arr2 = arr;
+
+    auto start2 = high_resolution_clock::now();
+    bubbleSortOMP(arr2);
+    auto end2 = high_resolution_clock::now();
+
+    auto time2 = duration_cast<microseconds>(end2 - start2);
+
+    // -------- OUTPUT --------
+    cout << "Normal Bubble Sort Time: " << time1.count() << " microseconds" << endl;
+    cout << "OpenMP Bubble Sort Time: " << time2.count() << " microseconds" << endl;
 
     return 0;
 }
