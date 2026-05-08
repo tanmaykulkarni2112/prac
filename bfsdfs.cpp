@@ -2,6 +2,7 @@
 #include <vector>
 #include <queue>
 #include <omp.h>
+#include <mutex>
 
 using namespace std;
 
@@ -24,68 +25,77 @@ struct Graph{
     void bfs(int start) {
         queue<int> q;
         vector<bool> visited(V, false);
+        omp_lock_t lock;
+        omp_init_lock(&lock);
         
         q.push(start);
         visited[start] = true;
 
         while(!q.empty()) {
+            omp_set_lock(&lock);
             int node = q.front();
-            cout << node << " ";
             q.pop();
+            omp_unset_lock(&lock);
+            
+            cout << node << " ";
 
             #pragma omp parallel for
             for(int i = 0; i < adj[node].size(); i++) {
                 int neighbor = adj[node][i];
 
                 if(!visited[neighbor]) {
-                    #pragma omp critical
-                    {
-                        if(!visited[neighbor]) {
-                            visited[neighbor] = true;
-                            q.push(neighbor);
-                        }
+                    omp_set_lock(&lock);
+                    if(!visited[neighbor]) {
+                        visited[neighbor] = true;
+                        q.push(neighbor);
                     }
+                    omp_unset_lock(&lock);
                 }
             }
         }
+        
+        omp_destroy_lock(&lock);
     }
 
     void dfs(int start, vector<bool> &visited) {
+        omp_set_lock(&dfsLock);
         visited[start] = true;
         cout << start << " ";
+        omp_unset_lock(&dfsLock);
 
         #pragma omp parallel for
         for(int i = 0; i < adj[start].size(); i++) {
             int neighbor = adj[start][i];
 
             if (!visited[neighbor]) {
-                #pragma omp critical
-                {
-                    if (!visited[neighbor]) {
-                        dfs(neighbor, visited);
-                    }
-                }
+                dfs(neighbor, visited);
             }
         }
     }
+
+    omp_lock_t dfsLock;
 };
 
 int main() {
-    // 0 based indexing
     Graph g(5);
-    g.createGraph(1,2);
-    g.createGraph(3,2);
-    g.createGraph(4,2);
-    g.createGraph(0,3);
+    omp_init_lock(&g.dfsLock);
+    
+    g.createGraph(0, 1);
+    g.createGraph(0, 2);
+    g.createGraph(1, 2);
+    g.createGraph(1, 3);
+    g.createGraph(2, 3);
+    g.createGraph(3, 4);
 
     cout << "BFS: ";
     g.bfs(0);
+    cout << "\n";
 
-    cout << "\n----------\nDFS: ";
+    cout << "DFS: ";
     g.dfs(0, g.dfsVisited);
+    cout << "\n";
+    
+    omp_destroy_lock(&g.dfsLock);
 
     return 0;
 }
-
-// g++ -fopenmp yourfile.cpp -o output
-// ./output
