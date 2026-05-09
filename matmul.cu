@@ -1,4 +1,4 @@
-// matrix_mul.cu
+%%writefile matmul.cu
 #include <stdio.h>
 
 __global__ void matMul(float *A, float *B, float *C, int N) {
